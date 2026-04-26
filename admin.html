@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KeyKid Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Mitr:wght@300;400;500;600&family=Fredoka+One&display=swap" rel="stylesheet">
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+
+  // ==============================
+  // 🔥 ใส่ Firebase Config ของคุณตรงนี้
+  // ==============================
+  const firebaseConfig = {
+    apiKey: "AIzaSyCGNUNA4PASLcN884s_5XiIiKwzfXc8FzU",
+    authDomain: "keykid-16f0b.firebaseapp.com",
+    projectId: "keykid-16f0b",
+    storageBucket: "keykid-16f0b.firebasestorage.app",
+    messagingSenderId: "801144682317",
+    appId: "1:801144682317:web:9533bdd53a0022a3e0e904"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const storage = getStorage(app);
+
+  let editingId = null;
+  let photoFile = null;
+
+  // ---- helpers ----
+  function generateId() {
+    return Math.random().toString(36).slice(2, 10);
+  }
+
+  function showToast(msg, type='success') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast show ' + type;
+    setTimeout(() => t.className = 'toast', 2500);
+  }
+
+  function setLoading(btn, loading) {
+    btn.disabled = loading;
+    btn.textContent = loading ? '⏳ กำลังบันทึก...' : (editingId ? '💾 อัปเดต' : '✅ บันทึก');
+  }
+
+  // ---- render card ----
+  function renderCard(id, d) {
+    const baseUrl = window.location.origin + window.location.pathname.replace('admin.html','') + 'child.html';
+    const url = `${baseUrl}?id=${id}`;
+    return `
+    <div class="child-card" id="card-${id}">
+      <div class="card-photo">
+        ${d.photoUrl ? `<img src="${d.photoUrl}" alt="${d.name}">` : '<span class="emoji-avatar">🧒</span>'}
+      </div>
+      <div class="card-info">
+        <div class="card-name">น้อง${d.name}</div>
+        <div class="card-meta">${d.age ? `อายุ ${d.age} ปี` : ''} ${d.gender ? `· ${d.gender}` : ''}</div>
+        <div class="card-phone">📞 ${d.phone1 || '—'}</div>
+        <div class="card-id">ID: <code>${id}</code></div>
+      </div>
+      <div class="card-actions">
+        <button class="btn-copy" onclick="copyUrl('${url}')">🔗 Copy URL</button>
+        <button class="btn-edit" onclick="startEdit('${id}')">✏️ แก้ไข</button>
+        <button class="btn-delete" onclick="deleteChild('${id}')">🗑️</button>
+      </div>
+    </div>`;
+  }
+
+  // ---- load all ----
+  async function loadChildren() {
+    const list = document.getElementById('children-list');
+    list.innerHTML = '<div class="loading-msg">⏳ กำลังโหลด...</div>';
+    try {
+      const snap = await getDocs(collection(db, 'children'));
+      if (snap.empty) { list.innerHTML = '<div class="empty-msg">ยังไม่มีข้อมูล กรอกฟอร์มด้านบนเพื่อเพิ่มเด็กคนแรก 🎉</div>'; return; }
+      list.innerHTML = '';
+      snap.forEach(d => { list.innerHTML += renderCard(d.id, d.data()); });
+    } catch(e) {
+      list.innerHTML = '<div class="empty-msg error">❌ เชื่อม Firebase ไม่ได้ — กรุณาตั้งค่า firebaseConfig ก่อน</div>';
+    }
+  }
+
+  // ---- save ----
+  async function saveChild() {
+    const btn = document.getElementById('save-btn');
+    const name = document.getElementById('f-name').value.trim();
+    const phone1 = document.getElementById('f-phone1').value.trim();
+    if (!name || !phone1) { showToast('กรุณากรอกชื่อและเบอร์โทรอย่างน้อย 1 เบอร์', 'error'); return; }
+
+    setLoading(btn, true);
+    try {
+      let photoUrl = document.getElementById('f-photo-url').value.trim() || '';
+
+      // อัปโหลดรูปถ้ามี
+      if (photoFile) {
+        const id = editingId || generateId();
+        const storageRef = ref(storage, `children/${id}/${photoFile.name}`);
+        await uploadBytes(storageRef, photoFile);
+        photoUrl = await getDownloadURL(storageRef);
+      }
+
+      const data = {
+        name,
+        age: document.getElementById('f-age').value.trim(),
+        gender: document.getElementById('f-gender').value,
+        phone1,
+        label1: document.getElementById('f-label1').value.trim() || 'ผู้ปกครอง',
+        phone2: document.getElementById('f-phone2').value.trim(),
+        label2: document.getElementById('f-label2').value.trim() || 'ผู้ปกครอง 2',
+        address: document.getElementById('f-address').value.trim(),
+        medical: document.getElementById('f-medical').value.trim(),
+        photoUrl,
+        updatedAt: new Date().toISOString()
+      };
+
+      if (editingId) {
+        await updateDoc(doc(db, 'children', editingId), data);
+        showToast('✅ อัปเดตข้อมูลแล้ว!');
+      } else {
+        await addDoc(collection(db, 'children'), data);
+        showToast('🎉 เพิ่มเด็กใหม่แล้ว!');
+      }
+
+      resetForm();
+      loadChildren();
+    } catch(e) {
+      showToast('❌ บันทึกไม่สำเร็จ: ' + e.message, 'error');
+    }
+    setLoading(btn, false);
+  }
+
+  // ---- edit ----
+  window.startEdit = async (id) => {
+    const snap = await getDocs(collection(db, 'children'));
+    snap.forEach(d => {
+      if (d.id === id) {
+        const data = d.data();
+        editingId = id;
+        document.getElementById('f-name').value = data.name || '';
+        document.getElementById('f-age').value = data.age || '';
+        document.getElementById('f-gender').value = data.gender || '';
+        document.getElementById('f-phone1').value = data.phone1 || '';
+        document.getElementById('f-label1').value = data.label1 || '';
+        document.getElementById('f-phone2').value = data.phone2 || '';
+        document.getElementById('f-label2').value = data.label2 || '';
+        document.getElementById('f-address').value = data.address || '';
+        document.getElementById('f-medical').value = data.medical || '';
+        document.getElementById('f-photo-url').value = data.photoUrl || '';
+        document.getElementById('save-btn').textContent = '💾 อัปเดต';
+        document.getElementById('cancel-btn').style.display = 'inline-flex';
+        document.getElementById('form-title').textContent = `✏️ แก้ไขข้อมูล น้อง${data.name}`;
+        document.querySelector('.form-card').scrollIntoView({behavior:'smooth'});
+      }
+    });
+  };
+
+  // ---- delete ----
+  window.deleteChild = async (id) => {
+    if (!confirm('ลบข้อมูลเด็กคนนี้?')) return;
+    await deleteDoc(doc(db, 'children', id));
+    document.getElementById(`card-${id}`)?.remove();
+    showToast('🗑️ ลบแล้ว');
+  };
+
+  // ---- copy url ----
+  window.copyUrl = (url) => {
+    navigator.clipboard.writeText(url);
+    showToast('📋 Copy URL แล้ว!');
+  };
+
+  // ---- reset form ----
+  function resetForm() {
+    editingId = null;
+    photoFile = null;
+    document.getElementById('child-form').reset();
+    document.getElementById('photo-preview').style.display = 'none';
+    document.getElementById('save-btn').textContent = '✅ บันทึก';
+    document.getElementById('cancel-btn').style.display = 'none';
+    document.getElementById('form-title').textContent = '➕ เพิ่มเด็กใหม่';
+  }
+
+  // ---- photo preview ----
+  function previewPhoto(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    photoFile = file;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const prev = document.getElementById('photo-preview');
+      prev.src = ev.target.result;
+      prev.style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // ---- init ----
+  window.addEventListener('DOMContentLoaded', () => {
+    loadChildren();
+    document.getElementById('save-btn').addEventListener('click', saveChild);
+    document.getElementById('cancel-btn').addEventListener('click', resetForm);
+    document.getElementById('f-photo-file').addEventListener('change', previewPhoto);
+  });
+</script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: 'Mitr', sans-serif;
+  background: #F4F7FF;
+  color: #2D2D4E;
+  min-height: 100vh;
+}
+
+/* top bar */
+.topbar {
+  background: linear-gradient(90deg, #FF7BAC, #FFB347);
+  padding: 16px 28px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 4px 20px rgba(255,123,172,0.3);
+}
+.topbar-logo { font-family:'Fredoka One',cursive; color:#fff; font-size:1.6rem; }
+.topbar-sub { color:rgba(255,255,255,0.85); font-size:0.85rem; }
+
+.container { max-width: 900px; margin: 0 auto; padding: 28px 20px; }
+
+/* form card */
+.form-card {
+  background: #fff;
+  border-radius: 24px;
+  padding: 28px;
+  box-shadow: 0 4px 24px rgba(100,80,200,0.08);
+  margin-bottom: 32px;
+}
+.form-title {
+  font-family: 'Fredoka One', cursive;
+  font-size: 1.3rem;
+  color: #FF7BAC;
+  margin-bottom: 20px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.form-grid .full { grid-column: 1 / -1; }
+
+label { display:block; font-size:0.78rem; font-weight:600; color:#888; margin-bottom:5px; letter-spacing:0.5px; }
+input, select, textarea {
+  width: 100%;
+  padding: 11px 14px;
+  border: 2px solid #EEE;
+  border-radius: 12px;
+  font-family: 'Mitr', sans-serif;
+  font-size: 0.95rem;
+  color: #2D2D4E;
+  background: #FAFAFA;
+  transition: border-color 0.2s;
+  outline: none;
+}
+input:focus, select:focus, textarea:focus { border-color: #FF7BAC; background:#fff; }
+textarea { resize: vertical; min-height: 70px; }
+
+.photo-row { display:flex; align-items:center; gap:14px; }
+#photo-preview { width:64px; height:64px; border-radius:50%; object-fit:cover; display:none; border:3px solid #FF7BAC; }
+
+.form-actions { display:flex; gap:12px; margin-top:20px; flex-wrap:wrap; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 14px;
+  font-family: 'Mitr', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.btn:hover { transform: translateY(-2px); }
+.btn-primary { background: linear-gradient(90deg,#FF7BAC,#FF5B8A); color:#fff; box-shadow:0 4px 16px rgba(255,91,138,0.3); }
+.btn-secondary { background: #F0F0F8; color:#666; }
+
+/* list */
+.section-title {
+  font-family: 'Fredoka One', cursive;
+  font-size: 1.2rem;
+  color: #3A2E6E;
+  margin-bottom: 16px;
+}
+
+.children-list { display: flex; flex-direction: column; gap: 14px; }
+
+.child-card {
+  background: #fff;
+  border-radius: 20px;
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 2px 12px rgba(100,80,200,0.07);
+  transition: box-shadow 0.2s;
+}
+.child-card:hover { box-shadow: 0 6px 24px rgba(100,80,200,0.13); }
+
+.card-photo { flex-shrink:0; }
+.card-photo img, .emoji-avatar {
+  width: 60px; height: 60px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #FFE0EF;
+  font-size: 2rem;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg,#FFE0EF,#E0F0FF);
+}
+
+.card-info { flex: 1; min-width: 0; }
+.card-name { font-family:'Fredoka One',cursive; font-size:1.1rem; color:#2D2D4E; }
+.card-meta { font-size:0.8rem; color:#999; margin:2px 0; }
+.card-phone { font-size:0.88rem; color:#555; }
+.card-id { font-size:0.72rem; color:#bbb; margin-top:4px; }
+.card-id code { background:#F4F7FF; padding:2px 6px; border-radius:6px; }
+
+.card-actions { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+.btn-copy, .btn-edit, .btn-delete {
+  padding: 7px 14px;
+  border-radius: 10px;
+  border: none;
+  font-family: 'Mitr', sans-serif;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+.btn-copy { background:#E8F5FF; color:#0077CC; }
+.btn-edit { background:#FFF0F8; color:#FF5B8A; }
+.btn-delete { background:#FFF0F0; color:#E55; }
+.btn-copy:hover, .btn-edit:hover, .btn-delete:hover { transform:scale(1.05); }
+
+.loading-msg, .empty-msg {
+  text-align: center;
+  padding: 40px;
+  color: #aaa;
+  font-size: 0.95rem;
+}
+.empty-msg.error { color: #E55; }
+
+/* toast */
+.toast {
+  position: fixed;
+  bottom: 30px; left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: #2D2D4E;
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 50px;
+  font-size: 0.9rem;
+  opacity: 0;
+  transition: all 0.3s;
+  z-index: 999;
+  white-space: nowrap;
+}
+.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+.toast.error { background: #E55; }
+
+@media(max-width:600px) {
+  .form-grid { grid-template-columns: 1fr; }
+  .child-card { flex-wrap:wrap; }
+  .card-actions { width:100%; }
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <div class="topbar-logo">🔑 KeyKid Admin</div>
+    <div class="topbar-sub">ระบบจัดการพวงกุญแจ NFC</div>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- form -->
+  <div class="form-card">
+    <div class="form-title" id="form-title">➕ เพิ่มเด็กใหม่</div>
+    <form id="child-form" onsubmit="return false">
+      <div class="form-grid">
+        <div>
+          <label>ชื่อเด็ก *</label>
+          <input id="f-name" type="text" placeholder="มะลิ">
+        </div>
+        <div>
+          <label>อายุ</label>
+          <input id="f-age" type="number" placeholder="4" min="0" max="18">
+        </div>
+        <div>
+          <label>เพศ</label>
+          <select id="f-gender">
+            <option value="">— ไม่ระบุ —</option>
+            <option value="ชาย">ชาย</option>
+            <option value="หญิง">หญิง</option>
+          </select>
+        </div>
+        <div>
+          <label>เบอร์ผู้ปกครอง 1 *</label>
+          <input id="f-phone1" type="tel" placeholder="0812345678">
+        </div>
+        <div>
+          <label>ชื่อเรียก (เบอร์ 1)</label>
+          <input id="f-label1" type="text" placeholder="แม่">
+        </div>
+        <div>
+          <label>เบอร์ผู้ปกครอง 2</label>
+          <input id="f-phone2" type="tel" placeholder="0898765432">
+        </div>
+        <div>
+          <label>ชื่อเรียก (เบอร์ 2)</label>
+          <input id="f-label2" type="text" placeholder="พ่อ">
+        </div>
+        <div class="full">
+          <label>ที่อยู่บ้าน</label>
+          <input id="f-address" type="text" placeholder="123/45 ถ.พระราม 2 กรุงเทพฯ">
+        </div>
+        <div class="full">
+          <label>ข้อมูลสุขภาพ / แพ้ยา</label>
+          <textarea id="f-medical" placeholder="แพ้ยา Amoxicillin, แพ้อาหารทะเล"></textarea>
+        </div>
+        <div class="full">
+          <label>รูปภาพเด็ก</label>
+          <div class="photo-row">
+            <img id="photo-preview" alt="preview">
+            <div style="flex:1">
+              <input type="file" id="f-photo-file" accept="image/*" style="margin-bottom:8px">
+              <input id="f-photo-url" type="url" placeholder="หรือวาง URL รูปภาพ">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" id="save-btn">✅ บันทึก</button>
+        <button class="btn btn-secondary" id="cancel-btn" style="display:none">✖️ ยกเลิก</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- list -->
+  <div class="section-title">👦 รายการเด็กทั้งหมด</div>
+  <div class="children-list" id="children-list"></div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+</body>
+</html>

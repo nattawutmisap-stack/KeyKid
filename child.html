@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ข้อมูลฉุกเฉิน</title>
+<link href="https://fonts.googleapis.com/css2?family=Mitr:wght@300;400;500;600&family=Fredoka+One&display=swap" rel="stylesheet">
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  // ==============================
+  // 🔥 ใส่ Firebase Config เดียวกับ admin.html
+  // ==============================
+  const firebaseConfig = {
+    apiKey: "AIzaSyCGNUNA4PASLcN884s_5XiIiKwzfXc8FzU",
+    authDomain: "keykid-16f0b.firebaseapp.com",
+    projectId: "keykid-16f0b",
+    storageBucket: "keykid-16f0b.firebasestorage.app",
+    messagingSenderId: "801144682317",
+    appId: "1:801144682317:web:9533bdd53a0022a3e0e904"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  async function loadChild() {
+    const id = new URLSearchParams(window.location.search).get('id');
+    if (!id) { showError('ไม่พบ ID — URL ไม่ถูกต้อง'); return; }
+
+    try {
+      const snap = await getDoc(doc(db, 'children', id));
+      if (!snap.exists()) { showError('ไม่พบข้อมูลเด็ก — ID อาจถูกลบแล้ว'); return; }
+      render(snap.data());
+    } catch(e) {
+      showError('เชื่อม Firebase ไม่ได้ — กรุณาตั้งค่า config ก่อน');
+    }
+  }
+
+  function render(d) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('content').style.display = 'block';
+
+    // รูป
+    const photoEl = document.getElementById('photo-el');
+    if (d.photoUrl) {
+      photoEl.innerHTML = `<img src="${d.photoUrl}" alt="${d.name}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
+    }
+
+    // ชื่อ/อายุ
+    document.getElementById('child-name').textContent = 'น้อง' + d.name;
+    const parts = [];
+    if (d.age) parts.push(`อายุ ${d.age} ปี`);
+    if (d.gender) parts.push(`เพศ${d.gender}`);
+    document.getElementById('child-age').textContent = parts.join(' · ') || '—';
+
+    // ปุ่มโทร
+    const wrap = document.getElementById('call-wrap');
+    if (d.phone1) wrap.innerHTML += callBtn(d.phone1, d.label1 || 'ผู้ปกครอง', false);
+    if (d.phone2) wrap.innerHTML += callBtn(d.phone2, d.label2 || 'ผู้ปกครอง 2', true);
+
+    // ที่อยู่
+    if (d.address) {
+      document.getElementById('address-section').style.display = 'block';
+      document.getElementById('address-value').textContent = d.address;
+    }
+
+    // สุขภาพ
+    if (d.medical) {
+      document.getElementById('medical-section').style.display = 'flex';
+      document.getElementById('medical-value').innerHTML = `<strong>ข้อมูลสุขภาพ:</strong><br>${d.medical}<br><small>กรุณาแจ้งแพทย์หากมีความจำเป็น</small>`;
+    }
+  }
+
+  function callBtn(phone, label, secondary) {
+    const fmt = phone.replace(/(\d{3})(\d{3,4})(\d{4})/, '$1-$2-$3');
+    return `<a href="tel:${phone}" class="call-btn ${secondary?'secondary':''}">
+      <div class="call-icon">${secondary?'📱':'📞'}</div>
+      <div class="call-text"><small>โทรหา${label}ได้เลย</small><strong>${fmt}</strong></div>
+    </a>`;
+  }
+
+  function showError(msg) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('error-box').style.display = 'block';
+    document.getElementById('error-msg').textContent = msg;
+  }
+
+  window.addEventListener('DOMContentLoaded', loadChild);
+</script>
+<style>
+  :root {
+    --coral: #FF7BAC; --orange: #FFB347;
+    --lavender: #C5A8F5; --sky: #7DD8F8;
+    --white: #FFFDF5; --dark: #3A2E6E;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Mitr', sans-serif;
+    background: linear-gradient(135deg, #E0F4FF 0%, #FFE8F4 50%, #E8F5E1 100%);
+    min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .bubble { position:fixed; border-radius:50%; opacity:0.15; animation:floatUp linear infinite; pointer-events:none; }
+  @keyframes floatUp { 0%{transform:translateY(110vh) scale(0.8)} 100%{transform:translateY(-20vh) scale(1.2)} }
+
+  .card {
+    background: var(--white); border-radius: 36px; padding: 32px 28px 36px;
+    max-width: 400px; width: 100%;
+    box-shadow: 0 20px 60px rgba(100,80,200,0.12), 0 4px 16px rgba(255,123,172,0.1);
+    position: relative; overflow: hidden;
+    animation: cardIn 0.7s cubic-bezier(.34,1.56,.64,1) both;
+  }
+  @keyframes cardIn { from{opacity:0;transform:translateY(40px) scale(0.95)} to{opacity:1;transform:none} }
+
+  .ribbon {
+    background: linear-gradient(90deg, var(--coral), var(--orange));
+    border-radius: 20px 20px 0 0;
+    margin: -32px -28px 0; padding: 18px 24px 22px; text-align: center; position: relative;
+  }
+  .ribbon::after {
+    content:''; position:absolute; bottom:-14px; left:0; right:0; height:28px;
+    background:var(--white); border-radius:50% 50% 0 0 / 100% 100% 0 0;
+  }
+  .sos-badge {
+    display:inline-flex; align-items:center; gap:8px;
+    background:rgba(255,255,255,0.25); border:2px solid rgba(255,255,255,0.5);
+    border-radius:50px; padding:6px 18px; color:#fff;
+    font-family:'Fredoka One',cursive; font-size:1rem; margin-bottom:10px;
+  }
+  .ribbon h1 { font-family:'Fredoka One',cursive; color:#fff; font-size:1.5rem; text-shadow:0 2px 8px rgba(0,0,0,0.15); }
+
+  .photo-wrap { display:flex; flex-direction:column; align-items:center; margin:28px 0 18px; }
+  .photo-ring {
+    width:120px; height:120px; border-radius:50%; padding:4px;
+    background:linear-gradient(135deg,var(--coral),var(--lavender),var(--sky));
+    box-shadow:0 8px 24px rgba(197,168,245,0.4); margin-bottom:14px;
+    animation:spin 8s linear infinite;
+  }
+  @keyframes spin { to{filter:hue-rotate(360deg)} }
+  .photo-ring .emoji-ph {
+    width:100%;height:100%;border-radius:50%;
+    background:linear-gradient(135deg,#FFE0EF,#E0F4FF);
+    display:flex;align-items:center;justify-content:center;font-size:3.2rem;
+  }
+  .child-name { font-family:'Fredoka One',cursive; font-size:1.8rem; color:var(--dark); }
+  .child-age { font-size:0.9rem; color:#888; margin-top:2px; }
+
+  .call-wrap { margin:20px 0 10px; display:flex; flex-direction:column; gap:12px; }
+  .call-btn {
+    display:flex; align-items:center; gap:14px;
+    background:linear-gradient(90deg,var(--coral),#FF5B8A); color:#fff;
+    border:none; border-radius:18px; padding:16px 22px;
+    font-family:'Mitr',sans-serif; font-size:1rem; font-weight:500;
+    cursor:pointer; text-decoration:none;
+    box-shadow:0 6px 20px rgba(255,123,172,0.35);
+    transition:transform 0.15s; position:relative; overflow:hidden;
+  }
+  .call-btn.secondary { background:linear-gradient(90deg,var(--lavender),#A07CF0); box-shadow:0 6px 20px rgba(160,124,240,0.3); }
+  .call-btn:hover { transform:translateY(-2px); }
+  .call-icon { width:40px;height:40px;background:rgba(255,255,255,0.25);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0; }
+  .call-text small { display:block; font-size:0.7rem; opacity:0.8; margin-bottom:1px; }
+  .call-text strong { font-size:1.1rem; }
+  .call-btn::before {
+    content:''; position:absolute; top:50%; left:60px;
+    width:200%;height:200%;
+    background:radial-gradient(circle,rgba(255,255,255,0.15) 0%,transparent 60%);
+    transform:translate(-50%,-50%) scale(0); border-radius:50%;
+    animation:pulse 2.5s ease-out infinite;
+  }
+  @keyframes pulse { 0%{transform:translate(-50%,-50%) scale(0);opacity:1} 100%{transform:translate(-50%,-50%) scale(1);opacity:0} }
+
+  .section {
+    background:linear-gradient(135deg,#F0F8FF,#FFF0F8); border-radius:20px;
+    padding:16px 20px; margin:14px 0; display:none;
+  }
+  .section-label { font-size:0.72rem;font-weight:600;color:var(--coral);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px; }
+  .section-value { font-size:1.05rem;color:var(--dark);font-weight:500; }
+
+  .medical {
+    background:linear-gradient(135deg,#FFFDE7,#FFF3E0); border-left:4px solid var(--orange);
+    border-radius:0 16px 16px 0; padding:12px 16px; margin:14px 0;
+    font-size:0.88rem; color:#6D4C00; display:none; gap:10px; align-items:flex-start;
+  }
+
+  .footer { text-align:center; margin-top:22px; font-size:0.72rem; color:#aaa; }
+  .footer span { background:linear-gradient(90deg,var(--coral),var(--lavender)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; font-weight:600; }
+
+  .stars { position:absolute; top:0;left:0;right:0;bottom:0; pointer-events:none; overflow:hidden; }
+  .star { position:absolute; font-size:1rem; animation:twinkle 2s ease-in-out infinite; opacity:0.5; }
+  @keyframes twinkle { 0%,100%{opacity:0.3;transform:scale(0.9) rotate(0deg)} 50%{opacity:0.7;transform:scale(1.2) rotate(15deg)} }
+
+  #loading { text-align:center; padding:20px; color:#aaa; font-size:1.1rem; }
+  #content { display:none; }
+  #error-box {
+    display:none; background:#FFF0F0; border:2px solid #FFB3B3;
+    border-radius:16px; padding:20px; margin:16px 0; color:#C00; text-align:center; font-size:0.9rem;
+  }
+</style>
+</head>
+<body>
+
+<div class="bubble" style="width:80px;height:80px;background:#FFB347;left:5%;animation-duration:9s"></div>
+<div class="bubble" style="width:50px;height:50px;background:#7DD8F8;left:20%;animation-duration:12s;animation-delay:2s"></div>
+<div class="bubble" style="width:100px;height:100px;background:#FF7BAC;left:75%;animation-duration:10s;animation-delay:1s"></div>
+<div class="bubble" style="width:40px;height:40px;background:#C5A8F5;left:50%;animation-duration:14s;animation-delay:0.5s"></div>
+
+<div class="card">
+  <div class="stars">
+    <div class="star" style="top:10%;left:8%">⭐</div>
+    <div class="star" style="top:15%;right:10%;animation-delay:0.8s">✨</div>
+    <div class="star" style="bottom:20%;left:5%;animation-delay:1.4s">🌟</div>
+    <div class="star" style="bottom:25%;right:8%;animation-delay:0.4s">⭐</div>
+  </div>
+
+  <div class="ribbon">
+    <div class="sos-badge">🚨 SOS · ฉุกเฉิน</div>
+    <h1>พบเด็กหลงทาง</h1>
+  </div>
+
+  <div id="loading">⏳ กำลังโหลดข้อมูล...</div>
+  <div id="error-box">❌ <span id="error-msg"></span></div>
+
+  <div id="content">
+    <div class="photo-wrap">
+      <div class="photo-ring">
+        <div class="emoji-ph" id="photo-el">🧒</div>
+      </div>
+      <div class="child-name" id="child-name"></div>
+      <div class="child-age" id="child-age"></div>
+    </div>
+
+    <div class="call-wrap" id="call-wrap"></div>
+
+    <div class="section" id="address-section">
+      <div class="section-label">🏠 ที่อยู่บ้าน</div>
+      <div class="section-value" id="address-value"></div>
+    </div>
+
+    <div class="medical" id="medical-section">
+      <span style="font-size:1.4rem;flex-shrink:0">💊</span>
+      <div id="medical-value"></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    หากพบเด็ก กรุณาโทรแจ้งผู้ปกครองทันที 🙏<br>
+    <span>KeyKid NFC · พวงกุญแจเพื่อความปลอดภัย</span>
+  </div>
+</div>
+
+</body>
+</html>
