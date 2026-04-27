@@ -25,81 +25,123 @@
   const db = getFirestore(app);
 
   const params = new URLSearchParams(window.location.search);
-  const isEng = params.get('lang') === 'en';
+  let currentLang = params.get('lang') === 'en' ? 'en' : 'th';
+  let childData = null;
 
-  const txt = {
-    loading:  isEng ? '⏳ Loading...'           : '⏳ กำลังโหลดข้อมูล...',
-    noId:     isEng ? 'Invalid URL — no ID found' : 'ไม่พบ ID — URL ไม่ถูกต้อง',
-    noData:   isEng ? 'Child not found — may have been deleted' : 'ไม่พบข้อมูลเด็ก — ID อาจถูกลบแล้ว',
-    noConn:   isEng ? 'Cannot connect to Firebase' : 'เชื่อม Firebase ไม่ได้',
-    callText: isEng ? 'Call'                    : 'โทรหา',
-    callSub:  isEng ? 'Tap to call'             : 'กดโทรได้เลย',
-    address:  isEng ? '🏠 Home Address'         : '🏠 ที่อยู่บ้าน',
-    medical:  isEng ? 'Medical Info:'           : 'ข้อมูลสุขภาพ:',
-    medNote:  isEng ? 'Please inform the doctor if necessary.' : 'กรุณาแจ้งแพทย์หากมีความจำเป็น',
-    footer1:  isEng ? 'If you found this child, please contact the guardian immediately 🙏' : 'หากพบเด็ก กรุณาโทรแจ้งผู้ปกครองทันที 🙏',
-    footerBrand: isEng ? 'KeyKid NFC · Safety Keychain for Kids' : 'KeyKid NFC · พวงกุญแจเพื่อความปลอดภัย',
-    sos:      isEng ? '🚨 SOS · Emergency'      : '🚨 SOS · ฉุกเฉิน',
-    title:    isEng ? 'Found a Lost Child'      : 'พบเด็กหลงทาง',
-    parent1:  isEng ? 'Parent'                  : 'ผู้ปกครอง',
-    parent2:  isEng ? 'Parent 2'                : 'ผู้ปกครอง 2',
-    age:      isEng ? (a) => `Age ${a}`         : (a) => `อายุ ${a} ปี`,
-    gender: isEng
-      ? (g) => g === 'ชาย' ? 'Male' : g === 'หญิง' ? 'Female' : g
-      : (g) => `เพศ${g === 'Male' ? 'ชาย' : g === 'Female' ? 'หญิง' : g}`,
-    name:     isEng ? (n) => n                  : (n) => `น้อง${n}`,
+  const texts = {
+    th: {
+      loading: '⏳ กำลังโหลดข้อมูล...',
+      noId: 'ไม่พบ ID — URL ไม่ถูกต้อง',
+      noData: 'ไม่พบข้อมูลเด็ก — ID อาจถูกลบแล้ว',
+      noConn: 'เชื่อม Firebase ไม่ได้',
+      callSub: 'กดโทรได้เลย',
+      address: '🏠 ที่อยู่บ้าน',
+      medical: 'ข้อมูลสุขภาพ:',
+      medNote: 'กรุณาแจ้งแพทย์หากมีความจำเป็น',
+      footer1: 'หากพบเด็ก กรุณาโทรแจ้งผู้ปกครองทันที 🙏',
+      footerBrand: 'KeyKid NFC · พวงกุญแจเพื่อความปลอดภัย',
+      sos: '🚨 SOS · ฉุกเฉิน',
+      title: 'พบเด็กหลงทาง',
+      parent1: 'ผู้ปกครอง',
+      parent2: 'ผู้ปกครอง 2',
+      age: (a) => `อายุ ${a} ปี`,
+      gender: (g) => `เพศ${g === 'Male' ? 'ชาย' : g === 'Female' ? 'หญิง' : g}`,
+      name: (n) => `น้อง${n}`,
+    },
+    en: {
+      loading: '⏳ Loading...',
+      noId: 'Invalid URL — no ID found',
+      noData: 'Child not found — may have been deleted',
+      noConn: 'Cannot connect to Firebase',
+      callSub: 'Tap to call',
+      address: '🏠 Home Address',
+      medical: 'Medical Info:',
+      medNote: 'Please inform the doctor if necessary.',
+      footer1: 'If you found this child, please contact the guardian immediately 🙏',
+      footerBrand: 'KeyKid NFC · Safety Keychain for Kids',
+      sos: '🚨 SOS · Emergency',
+      title: 'Found a Lost Child',
+      parent1: 'Parent',
+      parent2: 'Parent 2',
+      age: (a) => `Age ${a}`,
+      gender: (g) => g === 'ชาย' ? 'Male' : g === 'หญิง' ? 'Female' : g,
+      name: (n) => n,
+    }
+  };
+
+  function getTxt() { return texts[currentLang]; }
+
+  window.switchLang = (lang) => {
+    currentLang = lang;
+    document.getElementById('btn-th').classList.toggle('active', lang === 'th');
+    document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+    if (childData) applyText(childData);
+    else {
+      const txt = getTxt();
+      document.getElementById('sos-badge').textContent = txt.sos;
+      document.getElementById('ribbon-title').textContent = txt.title;
+      document.getElementById('footer-text').textContent = txt.footer1;
+      document.getElementById('footer-brand').textContent = txt.footerBrand;
+    }
   };
 
   async function loadChild() {
     const id = params.get('id');
+    const txt = getTxt();
     document.getElementById('loading').textContent = txt.loading;
     document.getElementById('sos-badge').textContent = txt.sos;
     document.getElementById('ribbon-title').textContent = txt.title;
     document.getElementById('footer-text').textContent = txt.footer1;
     document.getElementById('footer-brand').textContent = txt.footerBrand;
+    document.getElementById('btn-th').classList.toggle('active', currentLang === 'th');
+    document.getElementById('btn-en').classList.toggle('active', currentLang === 'en');
     if (!id) { showError(txt.noId); return; }
     try {
       const snap = await getDoc(doc(db, 'children', id));
       if (!snap.exists()) { showError(txt.noData); return; }
-      render(snap.data());
+      childData = snap.data();
+      render(childData);
     } catch(e) {
       showError(txt.noConn);
+    }
+  }
+
+  function applyText(d) {
+    const txt = getTxt();
+    document.getElementById('sos-badge').textContent = txt.sos;
+    document.getElementById('ribbon-title').textContent = txt.title;
+    document.getElementById('footer-text').textContent = txt.footer1;
+    document.getElementById('footer-brand').textContent = txt.footerBrand;
+    document.getElementById('child-name').textContent = txt.name(d.name);
+    const parts = [];
+    if (d.age) parts.push(txt.age(d.age));
+    if (d.gender) parts.push(txt.gender(d.gender));
+    document.getElementById('child-age').textContent = parts.join(' · ') || '—';
+    document.getElementById('address-label').textContent = txt.address;
+    const wrap = document.getElementById('call-wrap');
+    wrap.innerHTML = '';
+    if (d.phone1) wrap.innerHTML += callBtn(d.phone1, d.label1 || txt.parent1, false);
+    if (d.phone2) wrap.innerHTML += callBtn(d.phone2, d.label2 || txt.parent2, true);
+    if (d.medical) {
+      document.getElementById('medical-value').innerHTML = `<strong>${txt.medical}</strong><br>${d.medical}<br><small>${txt.medNote}</small>`;
     }
   }
 
   function render(d) {
     document.getElementById('loading').style.display = 'none';
     document.getElementById('content').style.display = 'block';
-
     const photoEl = document.getElementById('photo-el');
     if (d.photoUrl) {
       photoEl.innerHTML = `<img src="${d.photoUrl}" alt="${d.name}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
     }
-
-    document.getElementById('child-name').textContent = txt.name(d.name);
-    const parts = [];
-    if (d.age) parts.push(txt.age(d.age));
-    if (d.gender) parts.push(txt.gender(d.gender));
-    document.getElementById('child-age').textContent = parts.join(' · ') || '—';
-
-    const wrap = document.getElementById('call-wrap');
-    if (d.phone1) wrap.innerHTML += callBtn(d.phone1, d.label1 || txt.parent1, false);
-    if (d.phone2) wrap.innerHTML += callBtn(d.phone2, d.label2 || txt.parent2, true);
-
-    if (d.address) {
-      document.getElementById('address-section').style.display = 'block';
-      document.getElementById('address-label').textContent = txt.address;
-      document.getElementById('address-value').textContent = d.address;
-    }
-
-    if (d.medical) {
-      document.getElementById('medical-section').style.display = 'flex';
-      document.getElementById('medical-value').innerHTML = `<strong>${txt.medical}</strong><br>${d.medical}<br><small>${txt.medNote}</small>`;
-    }
+    if (d.address) document.getElementById('address-section').style.display = 'block';
+    if (d.medical) document.getElementById('medical-section').style.display = 'flex';
+    applyText(d);
   }
 
   function callBtn(phone, label, secondary) {
     const fmt = phone.replace(/(\d{3})(\d{3,4})(\d{4})/, '$1-$2-$3');
+    const txt = getTxt();
     return `<a href="tel:${phone}" class="call-btn ${secondary?'secondary':''}">
       <div class="call-icon">${secondary?'📱':'📞'}</div>
       <div class="call-text"><small>${txt.callSub} ${label}</small><strong>${fmt}</strong></div>
@@ -112,7 +154,17 @@
     document.getElementById('error-msg').textContent = msg;
   }
 
-  window.addEventListener('DOMContentLoaded', loadChild);
+  window.switchLang = (lang) => {
+    const url = new URL(window.location.href);
+    if (lang === 'en') url.searchParams.set('lang', 'en');
+    else url.searchParams.delete('lang');
+    window.location.href = url.toString();
+  };
+
+  window.addEventListener('DOMContentLoaded', () => {
+    loadChild();
+    document.getElementById(isEng ? 'btn-en' : 'btn-th').classList.add('active');
+  });
 </script>
 <style>
   :root {
@@ -156,6 +208,29 @@
     font-family:'Fredoka One',cursive; font-size:1rem; margin-bottom:10px;
   }
   .ribbon h1 { font-family:'Fredoka One',cursive; color:#fff; font-size:1.5rem; text-shadow:0 2px 8px rgba(0,0,0,0.15); }
+
+  .lang-toggle {
+    position: absolute;
+    top: 12px; right: 12px;
+    display: flex; gap: 4px;
+    z-index: 10;
+  }
+  .lang-btn {
+    background: rgba(255,255,255,0.25);
+    border: 2px solid rgba(255,255,255,0.5);
+    border-radius: 20px;
+    padding: 4px 10px;
+    color: #fff;
+    font-family: 'Mitr', sans-serif;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .lang-btn.active {
+    background: rgba(255,255,255,0.6);
+    color: var(--coral);
+    font-weight: 600;
+  }
 
   .photo-wrap { display:flex; flex-direction:column; align-items:center; margin:28px 0 18px; }
   .photo-ring {
@@ -215,7 +290,29 @@
   .star { position:absolute; font-size:1rem; animation:twinkle 2s ease-in-out infinite; opacity:0.5; }
   @keyframes twinkle { 0%,100%{opacity:0.3;transform:scale(0.9) rotate(0deg)} 50%{opacity:0.7;transform:scale(1.2) rotate(15deg)} }
 
-  #loading { text-align:center; padding:20px; color:#aaa; font-size:1.1rem; }
+  .lang-toggle {
+    position: fixed;
+    top: 16px; right: 16px;
+    display: flex;
+    gap: 6px;
+    z-index: 100;
+  }
+  .lang-btn {
+    padding: 6px 14px;
+    border-radius: 50px;
+    border: 2px solid rgba(255,123,172,0.3);
+    background: #fff;
+    font-family: 'Mitr', sans-serif;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+  }
+  .lang-btn.active {
+    background: linear-gradient(90deg, var(--coral), var(--orange));
+    color: #fff;
+    border-color: transparent;
+  }
   #content { display:none; }
   #error-box {
     display:none; background:#FFF0F0; border:2px solid #FFB3B3;
@@ -225,7 +322,10 @@
 </head>
 <body>
 
-<div class="bubble" style="width:80px;height:80px;background:#FFB347;left:5%;animation-duration:9s"></div>
+<div class="lang-toggle">
+  <button class="lang-btn" id="btn-th" onclick="switchLang('th')">🇹🇭 ไทย</button>
+  <button class="lang-btn" id="btn-en" onclick="switchLang('en')">🇬🇧 EN</button>
+</div>
 <div class="bubble" style="width:50px;height:50px;background:#7DD8F8;left:20%;animation-duration:12s;animation-delay:2s"></div>
 <div class="bubble" style="width:100px;height:100px;background:#FF7BAC;left:75%;animation-duration:10s;animation-delay:1s"></div>
 <div class="bubble" style="width:40px;height:40px;background:#C5A8F5;left:50%;animation-duration:14s;animation-delay:0.5s"></div>
@@ -239,6 +339,10 @@
   </div>
 
   <div class="ribbon">
+    <div class="lang-toggle">
+      <button class="lang-btn" id="btn-th" onclick="switchLang('th')">🇹🇭 ไทย</button>
+      <button class="lang-btn" id="btn-en" onclick="switchLang('en')">🇬🇧 EN</button>
+    </div>
     <div class="sos-badge" id="sos-badge">🚨 SOS · ฉุกเฉิน</div>
     <h1 id="ribbon-title">พบเด็กหลงทาง</h1>
   </div>
