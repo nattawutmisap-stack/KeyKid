@@ -8,7 +8,9 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-  import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+  // Cloudinary config (ไม่ต้องใช้ Firebase Storage แล้ว)
+  const CLOUDINARY_CLOUD = 'drvopbwr4';
+  const CLOUDINARY_PRESET = 'ml_default';
 
   // ==============================
   // 🔥 ใส่ Firebase Config ของคุณตรงนี้
@@ -24,7 +26,6 @@
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
-  const storage = getStorage(app);
 
   let editingId = null;
   let photoFile = null;
@@ -94,12 +95,16 @@
     try {
       let photoUrl = document.getElementById('f-photo-url').value.trim() || '';
 
-      // อัปโหลดรูปถ้ามี
+      // อัปโหลดรูปผ่าน Cloudinary ถ้ามี
       if (photoFile) {
-        const id = editingId || generateId();
-        const storageRef = ref(storage, `children/${id}/${photoFile.name}`);
-        await uploadBytes(storageRef, photoFile);
-        photoUrl = await getDownloadURL(storageRef);
+        const formData = new FormData();
+        formData.append('file', photoFile);
+        formData.append('upload_preset', CLOUDINARY_PRESET);
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, {
+          method: 'POST', body: formData
+        });
+        const json = await res.json();
+        photoUrl = json.secure_url;
       }
 
       const data = {
