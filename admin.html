@@ -97,14 +97,22 @@
 
       // อัปโหลดรูปผ่าน Cloudinary ถ้ามี
       if (photoFile) {
-        const formData = new FormData();
-        formData.append('file', photoFile);
-        formData.append('upload_preset', CLOUDINARY_PRESET);
-        const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, {
-          method: 'POST', body: formData
-        });
-        const json = await res.json();
-        photoUrl = json.secure_url;
+        try {
+          const formData = new FormData();
+          formData.append('file', photoFile);
+          formData.append('upload_preset', CLOUDINARY_PRESET);
+          formData.append('cloud_name', CLOUDINARY_CLOUD);
+          const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, {
+            method: 'POST', body: formData
+          });
+          if (!res.ok) throw new Error('Upload failed');
+          const json = await res.json();
+          if (json.error) throw new Error(json.error.message);
+          photoUrl = json.secure_url;
+        } catch(uploadErr) {
+          showToast('⚠️ อัปโหลดรูปไม่สำเร็จ บันทึกโดยไม่มีรูปแทน', 'error');
+          photoUrl = '';
+        }
       }
 
       const data = {
