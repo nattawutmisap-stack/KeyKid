@@ -181,12 +181,22 @@
   };
 
   // ---- copy url ----
-  window.copyUrl = (url, btn) => {
-    navigator.clipboard.writeText(url);
+  window.copyUrl = async (url, btn) => {
     const orig = btn.textContent;
-    btn.textContent = '✅ Copied!';
-    setTimeout(() => btn.textContent = orig, 1500);
-    showToast('📋 Copy URL แล้ว!');
+    btn.textContent = '⏳...';
+    btn.disabled = true;
+    try {
+      const res = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(url)}`);
+      const short = await res.text();
+      navigator.clipboard.writeText(short);
+      btn.textContent = '✅ Copied!';
+      showToast('📋 Copy URL สั้นแล้ว!');
+    } catch(e) {
+      navigator.clipboard.writeText(url);
+      btn.textContent = '✅ Copied!';
+      showToast('📋 Copy URL แล้ว (ไม่ได้ย่อ)');
+    }
+    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1500);
   };
 
   // ---- reset form ----
