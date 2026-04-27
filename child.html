@@ -38,6 +38,7 @@
     medical:  isEng ? 'Medical Info:'           : 'ข้อมูลสุขภาพ:',
     medNote:  isEng ? 'Please inform the doctor if necessary.' : 'กรุณาแจ้งแพทย์หากมีความจำเป็น',
     footer1:  isEng ? 'If you found this child, please contact the guardian immediately 🙏' : 'หากพบเด็ก กรุณาโทรแจ้งผู้ปกครองทันที 🙏',
+    footerBrand: isEng ? 'KeyKid NFC · Safety Keychain for Kids' : 'KeyKid NFC · พวงกุญแจเพื่อความปลอดภัย',
     sos:      isEng ? '🚨 SOS · Emergency'      : '🚨 SOS · ฉุกเฉิน',
     title:    isEng ? 'Found a Lost Child'      : 'พบเด็กหลงทาง',
     parent1:  isEng ? 'Parent'                  : 'ผู้ปกครอง',
@@ -55,6 +56,7 @@
     document.getElementById('sos-badge').textContent = txt.sos;
     document.getElementById('ribbon-title').textContent = txt.title;
     document.getElementById('footer-text').textContent = txt.footer1;
+    document.getElementById('footer-brand').textContent = txt.footerBrand;
     if (!id) { showError(txt.noId); return; }
     try {
       const snap = await getDoc(doc(db, 'children', id));
@@ -268,7 +270,7 @@
 
   <div class="footer">
     <span id="footer-text">หากพบเด็ก กรุณาโทรแจ้งผู้ปกครองทันที 🙏</span><br>
-    <span>KeyKid NFC · พวงกุญแจเพื่อความปลอดภัย</span>
+    <span id="footer-brand">KeyKid NFC · พวงกุญแจเพื่อความปลอดภัย</span>
   </div>
 </div>
 
