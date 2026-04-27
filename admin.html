@@ -50,7 +50,8 @@
   // ---- render card ----
   function renderCard(id, d) {
     const baseUrl = window.location.origin + window.location.pathname.replace('admin.html','') + 'child.html';
-    const url = `${baseUrl}?id=${id}`;
+    const urlTH = `${baseUrl}?id=${id}`;
+    const urlEN = `${baseUrl}?id=${id}&lang=en`;
     return `
     <div class="child-card" id="card-${id}">
       <div class="card-photo">
@@ -63,7 +64,8 @@
         <div class="card-id">ID: <code>${id}</code></div>
       </div>
       <div class="card-actions">
-        <button class="btn-copy" onclick="copyUrl('${url}')">🔗 Copy URL</button>
+        <button class="btn-copy" onclick="copyUrl('${urlTH}', this)">🇹🇭 ไทย</button>
+        <button class="btn-copy eng" onclick="copyUrl('${urlEN}', this)">🇬🇧 Eng</button>
         <button class="btn-edit" onclick="startEdit('${id}')">✏️ แก้ไข</button>
         <button class="btn-delete" onclick="deleteChild('${id}')">🗑️</button>
       </div>
@@ -179,8 +181,11 @@
   };
 
   // ---- copy url ----
-  window.copyUrl = (url) => {
+  window.copyUrl = (url, btn) => {
     navigator.clipboard.writeText(url);
+    const orig = btn.textContent;
+    btn.textContent = '✅ Copied!';
+    setTimeout(() => btn.textContent = orig, 1500);
     showToast('📋 Copy URL แล้ว!');
   };
 
@@ -377,6 +382,7 @@ textarea { resize: vertical; min-height: 70px; }
   transition: transform 0.1s;
 }
 .btn-copy { background:#E8F5FF; color:#0077CC; }
+.btn-copy.eng { background:#FFF5E8; color:#CC6600; }
 .btn-edit { background:#FFF0F8; color:#FF5B8A; }
 .btn-delete { background:#FFF0F0; color:#E55; }
 .btn-copy:hover, .btn-edit:hover, .btn-delete:hover { transform:scale(1.05); }
